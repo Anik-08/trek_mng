@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String          @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  email            String          @unique
+  password         String
+  phone            String?
+  role             String          @default("USER")
+  age              Int?
+  bio              String?
+  emergencyContact String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  bookings         Booking[]
+  reviews          Review[]
+  notifications    Notification[]
+  guidedTreks      Trek[]          @relation("GuideTreks")
+  guidedSchedules  TrekSchedule[]  @relation("GuideSchedules")
+  guidedGroups     TrekGroup[]     @relation("GuideGroups")
+  groupMemberships GroupMember[]
+  liveLocations    LiveLocation[]
+  trekEvents       TrekEvent[]
+}
+
+model Trek {
+  id                 String          @id @default(auto()) @map("_id") @db.ObjectId
+  name               String
+  slug               String          @unique
+  location           String
+  state              String
+  description        String
+  difficulty         String          @default("MODERATE")
+  distance           Float
+  availableDurations Int[]
+  basePricePerDay    Float
+  maxParticipants    Int
+  meetingPoint       String
+  destination        String
+  elevation          Int
+  checkpoints        String
+  itineraries        String
+  requirements       String
+  images             String[]
+  imageUrl           String
+  status             String          @default("ACTIVE")
+  startLat           Float?
+  startLng           Float?
+  destLat            Float?
+  destLng            Float?
+  guideId            String?         @db.ObjectId
+  guide              User?           @relation("GuideTreks", fields: [guideId], references: [id])
+  schedules          TrekSchedule[]
+  bookings           Booking[]
+  reviews            Review[]
+  trekGroups         TrekGroup[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+model TrekSchedule {
+  id                 String          @id @default(auto()) @map("_id") @db.ObjectId
+  trekId             String          @db.ObjectId
+  trek               Trek            @relation(fields: [trekId], references: [id], onDelete: Cascade)
+  startDate          DateTime
+  endDate            DateTime
+  duration           Int
+  capacity           Int
+  bookedParticipants Int             @default(0)
+  guideId            String?         @db.ObjectId
+  guide              User?           @relation("GuideSchedules", fields: [guideId], references: [id])
+  status             String          @default("OPEN")
+  bookings           Booking[]
+  trekGroups         TrekGroup[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+model Booking {
+  id                 String          @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId          String          @unique
+  userId             String          @db.ObjectId
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trekId             String          @db.ObjectId
+  trek               Trek            @relation(fields: [trekId], references: [id], onDelete: Cascade)
+  scheduleId         String          @db.ObjectId
+  schedule           TrekSchedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  startDate          DateTime
+  endDate            DateTime
+  duration           Int
+  participants       Int
+  participantDetails String
+  totalAmount        Float
+  paymentStatus      String          @default("PAID")
+  bookingStatus      String          @default("CONFIRMED")
+  groupMembers       GroupMember[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+model Review {
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  rating    Int
+  comment   String
+  userId    String          @db.ObjectId
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trekId    String          @db.ObjectId
+  trek      Trek            @relation(fields: [trekId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+}
+
+model Notification {
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String          @db.ObjectId
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String          @default("SYSTEM")
+  isRead    Boolean         @default(false)
+  createdAt DateTime        @default(now())
+}
+
+model TrekGroup {
+  id                        String          @id @default(auto()) @map("_id") @db.ObjectId
+  groupCode                 String          @unique
+  trekId                    String          @db.ObjectId
+  trek                      Trek            @relation(fields: [trekId], references: [id], onDelete: Cascade)
+  scheduleId                String          @db.ObjectId
+  schedule                  TrekSchedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  guideId                   String          @db.ObjectId
+  guide                     User            @relation("GuideGroups", fields: [guideId], references: [id], onDelete: Cascade)
+  name                      String
+  maxMembers                Int             @default(15)
+  status                    String          @default("ACTIVE")
+  separationThresholdMeters Float           @default(100.0)
+  members                   GroupMember[]
+  liveLocations             LiveLocation[]
+  events                    TrekEvent[]
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
+}
+
+model GroupMember {
+  id                    String          @id @default(auto()) @map("_id") @db.ObjectId
+  groupId               String          @db.ObjectId
+  group                 TrekGroup       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId                String          @db.ObjectId
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookingId             String?         @db.ObjectId
+  booking               Booking?        @relation(fields: [bookingId], references: [id])
+  role                  String          @default("PARTICIPANT")
+  locationSharingStatus String          @default("INACTIVE")
+  lastLocationAt        DateTime?
+  joinedAt              DateTime        @default(now())
+}
+
+model LiveLocation {
+  id                    String          @id @default(auto()) @map("_id") @db.ObjectId
+  groupId               String          @db.ObjectId
+  group                 TrekGroup       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId                String          @db.ObjectId
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  latitude              Float
+  longitude             Float
+  accuracy              Float?
+  speed                 Float?
+  heading               Float?
+  isSimulated           Boolean         @default(false)
+  consecutiveDeviations Int             @default(0)
+  separationStatus      String          @default("NORMAL")
+  distanceFromCentroid  Float           @default(0.0)
+  distanceFromRoute     Float           @default(0.0)
+  timestamp             DateTime        @default(now())
+}
+
+model TrekEvent {
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  groupId   String          @db.ObjectId
+  group     TrekGroup       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String?         @db.ObjectId
+  user      User?           @relation(fields: [userId], references: [id])
+  eventType String
+  metadata  String?
+  timestamp DateTime        @default(now())
+}
